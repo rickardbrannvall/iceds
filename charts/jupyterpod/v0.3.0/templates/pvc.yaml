@@ -1,0 +1,13 @@
+# Creates a new PVC for the Rook CephFS filesystem
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-storage
+spec:
+  accessModes:
+  - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: {{ .Values.pvcSize | quote }}
+  storageClassName: rook-ceph-fs

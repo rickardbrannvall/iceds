@@ -1,0 +1,17 @@
+{{- if eq .Values.ssh.enable true }}
+# Setup port forwarding for ssh over nodeport
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-svc-ssh
+spec:
+  selector:
+    app: {{ .Release.Name }}-lab
+    release: {{ .Release.Name }}
+  type: NodePort
+  ports:
+    - name: ssh22
+      protocol: TCP
+      port: 22
+      targetPort: 22
+{{- end }}

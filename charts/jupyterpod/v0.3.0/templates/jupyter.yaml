@@ -1,0 +1,229 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-lab
+  labels:
+    ice: monitor-inactivity
+    app: jupyterlab
+    release: {{ .Release.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-lab
+      release: {{ .Release.Name }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-lab
+        release: {{ .Release.Name }}
+    spec:
+      securityContext:
+        runAsNonRoot: false
+        runAsUser: 0
+      containers:
+      - name: jupyterlab
+        image: {{ .Values.dockerimage | quote }}
+        imagePullPolicy: Always
+        securityContext:
+          runAsUser: 0
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - sh
+              - -c
+              - |
+                /bin/bash <<'EOF'
+
+                # Configure shared volumes
+                {{- if .Values.sharedvolumes | trim }}
+                {{- range splitList "," .Values.sharedvolumes }}
+                  {{ $vol := . | trim }}
+                  {{ printf "ln -s /mnt/%s %s\n" $vol $vol }}
+                {{- end }}
+                {{- end }}
+
+                # Configure SSH
+                {{- if eq .Values.ssh.enable true }}
+                {{- range splitList "\n" .Values.ssh.setupScript }}
+                  {{ printf "%s \n" . }}
+                {{- end }}
+                {{- range splitList "\n" .Values.ssh.startScript }}
+                  {{ printf "%s \n" . }}
+                {{- end }}
+                {{- end }}
+
+                # Set up the environment variables for SSH
+                printenv > /project.env
+                printf 'while read -r line; do export "$line"; done < /project.env' >> /etc/profile
+
+                # Configure rclone
+                {{- if eq .Values.s3.enable true }}
+                {{- range splitList "\n" .Values.s3.setupScript }}
+                  {{ printf "%s \n" . }}
+                {{- end }}
+                {{- end }}
+
+                # Configure git credentials
+                {{- if or (.Values.gitname | trim) (.Values.gitemail | trim) }}
+                  {{ printf "git config --global user.name '%s'\n" .Values.gitname}}
+                  {{ printf "git config --global user.email '%s'\n" .Values.gitemail}}
+                  {{ printf "git config --global credential.helper store \n" }}
+                {{- end }}
+
+                # Check and recursively update permissions of home directory if NB_UID or NB_GID are set
+                {{- if eq .Values.nbcheck true }}
+                  {{ printf "test -z \"$NB_UID\" && echo no > .nb_uid.log || echo yes > .nb_uid.log \n" }}
+                  {{ printf "test -z \"$NB_GID\" && echo no > .nb_gid.log || echo yes > .nb_gid.log \n" }}
+                  {{ printf "test -z \"$NB_UID\" || chown -hR $NB_UID $PWD \n" }}
+                  {{ printf "test -z \"$NB_GID\" || chgrp -hR $NB_GID $PWD \n" }}
+                  {{ printf "test -z \"$NB_UID\" || chmod og-w $PWD \n" }}
+                {{- end }}
+
+                # Create an autostart script to run at container startup
+                SCRIPTDIR=/mnt/local123abc
+                SCRIPTFILE=$SCRIPTDIR/autostart.sh
+                SCRIPTLOGFILE=$SCRIPTDIR/autostart.log
+                rm -f $SCRIPTFILE
+                rm -f $SCRIPTLOGFILE
+                {{- if .Values.autostart | trim }}
+                touch $SCRIPTFILE
+                {{- range splitList "\n" .Values.autostart }}
+                printf '{{ printf "%s" . }}\n' >> $SCRIPTFILE
+                {{- end }}
+                chmod +x $SCRIPTFILE
+                /bin/bash $SCRIPTFILE > $SCRIPTLOGFILE 2>&1 &
+                {{- end }}
+                EOF
+
+        env:
+        # Timezone
+        - name: TZ
+          value: {{ .Values.timezone }}
+        # Token for logging into JupyterLab
+        - name: JUPYTER_TOKEN
+          value: {{ .Values.token | quote }}
+        # Run JupyterLab instead of the default classic Jupyter Notebook
+        - name: JUPYTER_ENABLE_LAB
+          value: "yes"
+        # TODO: JupyterLab should already run as root, does this do anything?
+        - name: GRANT_SUDO
+          value: "yes"
+        # Default to HTTPS
+        - name: USE_HTTPS
+          value: "yes"
+        # Default shell is sh
+        - name: SHELL
+          value: "bash"
+        # Quitting Jupyter should not cause the container to exit
+        - name: RESTARTABLE
+          value: "yes"
+        # Configure S3
+        {{- if eq .Values.s3.enable true }}
+        - name: S3_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              key:  s3_access_key
+              name: {{ .Release.Name }}-s3-key
+        - name: S3_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              key:  s3_secret_key
+              name: {{ .Release.Name }}-s3-key
+        - name: S3_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              key:  s3_endpoint
+              name: {{ .Release.Name }}-s3-key
+        {{- end }}
+
+        ports:
+        - name: tcp8888
+          containerPort: 8888
+          protocol: TCP
+
+        {{- if eq .Values.ssh.enable true }}
+        - name: ssh22
+          containerPort: 22
+          protocol: TCP
+        {{- end }}
+
+        volumeMounts:
+        # Mount shared memory
+        - name: dshm
+          mountPath: /dev/shm
+
+        # Mount the default PVC for the user's home directory in multiple places
+        - name: {{ .Release.Name }}-storage
+          mountPath: /mnt/local123abc
+        {{- if .Values.homedir | trim }}
+        {{- range splitList "," .Values.homedir }}
+        - name: {{ $.Release.Name }}-storage
+          mountPath: {{ . | trim | quote }}
+        {{- end }}
+        {{- end }}
+
+        # Configure SSH authorized keys
+        {{- if eq .Values.ssh.enable true }}
+        - name: {{ .Release.Name }}-ssh-pubkey
+          mountPath: /etc/authorized_keys
+          subPath: authorized_keys
+        {{- end }}
+
+        # Mount existing shared volumes
+        {{- if .Values.sharedvolumes | trim }}
+        {{- range splitList "," .Values.sharedvolumes }}
+        - name: my-cephfs-{{ . | trim}}
+          mountPath: /mnt/{{ . | trim}}
+        {{- end }}
+        {{- end }}
+
+        # Configure hardware resources
+        resources:
+          limits:
+            memory: {{ .Values.resourceLimits.memory | quote }}
+            {{- if eq .Values.gpu.enable true }}
+            nvidia.com/gpu: {{ .Values.gpu.amount | quote }}
+            {{- end }}
+          requests:
+            cpu: {{ .Values.resourceLimits.cpu | quote }}
+            memory: {{ .Values.resourceLimits.memory | quote }}
+            {{- if eq .Values.gpu.enable true }}
+            nvidia.com/gpu: {{ .Values.gpu.amount | quote }}
+            {{- end }}
+      # Configure GPU selector
+      {{- if eq .Values.gpu.enable true }}
+      nodeSelector:
+        accelerator: {{ .Values.gpu.type }}
+      {{- end }}
+
+      volumes:
+      # Claim shared memory volume
+      - name: dshm
+        emptyDir:
+          medium: Memory
+      - name: {{ .Release.Name }}-storage
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-storage
+
+      # Claim SSH authorized keys
+      {{- if eq .Values.ssh.enable true }}
+      - name: {{ .Release.Name }}-ssh-pubkey
+        configMap:
+          name: {{ .Release.Name }}-ssh-pubkey
+      {{- end }}
+
+      # Claim existing shared volumes
+      {{- if .Values.sharedvolumes | trim }}
+      {{- range splitList "," .Values.sharedvolumes }}
+      - name: my-cephfs-{{ . | trim}}
+        persistentVolumeClaim:
+          claimName: {{ . | trim}}
+      {{- end }}
+      {{- end }}

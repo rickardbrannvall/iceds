@@ -1,0 +1,14 @@
+# Service to allow network traffic to the Jupyter pod
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-svc
+spec:
+  selector:
+    app: {{ .Release.Name }}-lab
+    release: {{ .Release.Name }}
+  ports:
+    - name: tcp8888
+      protocol: TCP
+      port: 8888
+      targetPort: 8888

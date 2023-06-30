@@ -1,0 +1,67 @@
+dockerimage: "tensorflow/tensorflow:2.12.0-gpu-jupyter"
+token: "changeme"
+nbcheck: true
+altjupyterhome: false
+homedir: "/home/jovyan,/tf"
+
+subdomain: "changeme.icedc.se"
+
+resourceLimits:
+  memory: "2Gi"
+  cpu: "100m"
+gpu:
+  enable: true
+  amount: 1
+  type: "nvidia-gtx-2080ti"
+pvcSize: "1Gi"
+sharedvolumes: ""
+
+ssh:
+  enable: true
+  pubkey: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDtcmW6eVcIFSmWODNxevqcS93NG92roHwKs/mrlp5Jb6iZa8kvuib7NoBmrrZK9Z4Y1jV10mS4Ok8q0oo0+Lp+8cRCE6dPL54Lel8sAUMzULmpq5esypxmh9RCxfltK89vgDDZLKclICiYAoL8InQtuH9OVXdek2FFYmFBVJ2MoWl3YMqMqzTBuI+jcqKmU94pEDG0OlMxBD6K6lg+CgQ2TE4BX9Ag9yGFUouj088rAwVPNf7zOSf3MRTa8f6J2Y0qFkKCkqqCmjRFXXkz2nMKCqKuKmIJYhTxL40S+DOMAyalwWYd40FKMPfibvqLNeuUnw2q0414ZcBX3qkPKSIt"
+
+  setupScript: |
+    mkdir -p /var/run/sshd
+    export "VISIBLE=now" >> /etc/profile
+    apt-get update && apt-get install -y openssh-client openssh-server
+    sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd
+    sed -i '$ a PasswordAuthentication no' /etc/ssh/sshd_config
+    sed -i '$ a PubkeyAuthentication yes' /etc/ssh/sshd_config
+    sed -i '$ a PermitRootLogin yes' /etc/ssh/sshd_config
+
+  startScript: |
+    service ssh restart
+    mkdir -p /root/.ssh
+    cp /etc/authorized_keys /root/.ssh/
+    chmod -R og-rwx /root/.ssh
+    chmod 700 /root/.ssh
+    chmod 700 /root
+    mkdir -p .ssh
+    cp /etc/authorized_keys .ssh/
+    chmod -R og-rwx .ssh
+    chmod -R 700 .ssh
+
+s3:
+  enable: true
+  endpoint: "s3.ice.ri.se"
+  access_key: "YOUR_ACCESS_KEY_____"
+  secret_key: "YOUR_SECRET_KEY_________________________"
+  setupScript: |
+    # Configure rclone
+    apt-get update && apt-get install -y rclone
+    mkdir -p /root/.config/rclone
+    printf "[s3]\ntype = s3\nprovider = Ceph\nenv_auth = false\naccess_key_id = ${S3_ACCESS_KEY}\nsecret_access_key = ${S3_SECRET_KEY}\nendpoint = ${S3_ENDPOINT}\nacl = private\nbucket_acl = private\nupload_cutoff = 1G" > /root/.config/rclone/rclone.conf
+    chmod 600 /root/.config/rclone/rclone.conf
+    # Configure AWS/boto3
+    mkdir -p /root/.aws/
+    printf "[default]\naws_access_key_id = ${S3_ACCESS_KEY}\naws_secret_access_key = ${S3_SECRET_KEY}" > /root/.aws/credentials
+    chmod 600 /root/.aws/credentials
+    printf "[default]\noutput : json" > /root/.aws/config
+    chmod 600 /root/.aws/config
+
+autostart: ""
+
+gitname: "rickard.brannvall"
+gitemail: "rickard.brannvall@ri.se"
+
+timezone: "Europe/Stockholm"

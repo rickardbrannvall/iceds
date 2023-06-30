@@ -1,0 +1,96 @@
+categories:
+- ICE
+questions:
+- variable: proxy.secretToken
+  type: string
+  required: true
+  default: "enter generated token here"
+  label: "Proxy token (32 byte random string)"
+  description: "You can generate one with command `openssl rand -hex 32`"
+  group: "Access settings"
+- variable: fqdn
+  type: string
+  required: true
+  default: "changeme.icedc.se"
+  label: "Subdomain for icedc.se"
+  description: "The subdomain (x.icedc.se) where the Jupyter instance will be located"
+  group: "Access settings"
+- variable: adminUsername
+  type: string
+  label: "Admin user"
+  required: true
+  description: "Enter username with admin panel access where normal users can then be added."
+  group: "Authentication"
+- variable: hub.config.DummyAuthenticator.password
+  type: password
+  required: true
+  label: "Enter common password"
+  description: "Password is common for all users"
+  group: "Authentication"
+- variable: singleuser.image.name
+  type: string
+  required: true
+  default: "jupyter/datascience-notebook"
+  label: "Docker image"
+  description: "Docker image with Jupyter installed e.g. jupyter/datascience-notebook:lab-3.0.9 or jupyter/minimal-notebook:latest or jupyter/all-spark-notebook"
+  group: "Docker"
+- variable: singleuser.storage.sharedStorageEnabled
+  type: boolean
+  default: false
+  label: Enable shared storage
+  description: "Add existing shared storage with name \"shared\", mounted on /shared. Note that readWriteMany storage volume with name \"shared\" must exist!"
+  group: "Jupyter settings"
+  show_subquestion_if: true
+  subquestions:
+  - variable: singleuser.storage.sharedStorageClaimName
+    type: string
+    default: "shared"
+    label: "Claim name"
+    description: "Name of existing persistent storage to attach"
+  - variable: singleuser.storage.sharedStorageMountPath
+    type: string
+    default: "/home/jovyan/shared"
+    label: "Mount path"
+    description: "Path in pod where shared storage will be mounted"
+- variable: singleuser.storage.capacity
+  type: string
+  default: "10Gi"
+  label: "Storage size (GiB)"
+  description: "The size of the persistant storage connected to the Jupyter instance"
+  group: "Jupyter settings"
+- variable: singleuser.memory.limit
+  type: string
+  default: "8G"
+  label: "Memory limit (GiB)"
+  description: "The memory limit of the Jupyter instance"
+  group: "Jupyter settings"
+- variable: singleuser.cpu.limit
+  type: string
+  default: "1"
+  label: "CPU limit (num CPUs)"
+  description: "The CPU limit of the Jupyter instance"
+  group: "Jupyter settings"
+- variable: gpu.enable
+  type: boolean
+  default: false 
+  label: "Attach GPU"
+  description: "Attach GPU(s) to the Jupyter instance"
+  group: "Jupyter settings"
+  show_subquestion_if: true
+  subquestions:
+  - variable: gpu.type
+    type: enum
+    options:
+    - "nvidia-gtx-1080ti"
+    - "nvidia-gtx-2080ti"
+    - "any"
+    default: "nvidia-gtx-1080ti"
+    label: "GPU type"
+    description: "The type of GPU to attach"
+  - variable: gpu.amount
+    type: int
+    min: 1
+    max: 8
+    default: 1
+    label: "GPU amount"
+    description: "The amount of GPU(s) to attach"

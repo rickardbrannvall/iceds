@@ -1,0 +1,173 @@
+categories:
+- Jupyter
+questions:
+- variable: dockerimage
+  type: string
+  required: true
+  default: "tensorflow/tensorflow:latest-gpu-jupyter"
+  label: "Docker image"
+  description: "Docker image with Jupyter (and Nvidia CUDA) pre-installed e.g. jupyter/datascience-notebook."
+  group: "Jupyter"
+
+- variable: token
+  type: string
+  required: true
+  default: ""
+  label: "Authentication token"
+  description: "Token used to protect the Jupyter instance. Set this to a random string."
+  group: "Jupyter"
+
+- variable: altjupyterhome
+  type: boolean
+  default: false
+  label: "Alternative Jupyter home directory"
+  description: "Select alternative path(s) to the Jupyter home directory to match that of the image."
+  show_subquestion_if: true
+  subquestions:
+  - variable: homedir
+    type: string
+    default: "/home/jovyan,/tf"
+    label: "Jupyter home directory path(s)"
+    description: "Comma-separated list of the absolute path(s) in the container where to attach persistent storage e.g. /home/jovyan and /tf."
+    group: "Jupyter"
+  group: "Jupyter"
+
+- variable: subdomain
+  type: string
+  required: true
+  default: ".icedc.se"
+  min_length: 10
+  label: "Subdomain for icedc.se"
+  description: "Address to the Jupyter Notebook, for example, myname.icedc.se."
+  group: "Web access"
+
+- variable: ssh.enable
+  type: boolean
+  default: true
+  label: "Enable SSH access"
+  description: "Enable/disable SSH access through a randomly assigned NodePort."
+  group: "SSH access"
+  show_subquestion_if: true
+  subquestions:
+  - variable: ssh.pubkey
+    type: string
+    required: false
+    default: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC6rpUUQ..."
+    label: "SSH public key"
+    description: "Paste the content of your ~/.ssh/id_rsa.pub here. It will be added to /etc/authorized_keys."
+
+- variable: autostart
+  type: multiline
+  default: ""
+  label: "Autostart script"
+  description: "Multi-line shell script to run at container (post) start, to install new software and automatically deploy workloads. Runs detached and does not block Jupyter from starting."
+  group: "Commands"
+
+- variable: resourceLimits.cpu
+  type: string
+  required: true
+  default: "1000m"
+  label: "Requested CPU (milli CPU)"
+  description: "Minimum number of CPU cores to request. More cores will be available freely depending on load, with a maximum of 64000m."
+  group: "Resources"
+
+- variable: resourceLimits.memory
+  type: string
+  required: true
+  default: "8Gi"
+  label: "Memory limit (Gibibyte)"
+  description: "RAM limit of the container."
+  group: "Resources"
+
+- variable: pvcSize
+  type: string
+  required: true
+  default: "10Gi"
+  label: "Storage size (Gibibyte)"
+  description: "Size of the persistent storage mounted at the Jupyter home directory."
+  group: "Resources"
+
+- variable: sharedvolumes
+  type: string
+  default: ""
+  label: "Existing shared volumes"
+  description: "Comma-separated list of existing persistent storage to attach, or blank. Volumes will be mounted at /mnt/vol1, /mnt/vol2, etc. Volumes must be in the same namespace as the Jupyter instance."
+  group: "Resources"
+
+- variable: gpu.enable
+  type: boolean
+  default: true
+  label: "Attach GPU"
+  description: "Attach GPU(s) to the Jupyter instance. NOTE: You must use a Docker image with GPU support."
+  group: "Resources"
+  show_subquestion_if: true
+  subquestions:
+
+  - variable: gpu.type
+    type: enum
+    options:
+    - "nvidia-gtx-2080ti"
+    - "nvidia-gtx-1080ti"
+    default: "nvidia-gtx-2080ti"
+    label: "GPU type"
+    description: "Type of GPU to attach."
+
+  - variable: gpu.amount
+    type: int
+    min:
+    max: 8
+    default: 1
+    label: "GPU amount"
+    description: "Number of GPU(s) to attach. Maximum is 8."
+
+- variable: s3.enable
+  type: boolean
+  default: false
+  label: "Enable S3 Storage"
+  description: "Configure S3 bucket storage, set in ~/.config/rclone/rclone.conf and ~/.aws/credentials"
+  group: "S3 Storage"
+  show_subquestion_if: true
+  subquestions:
+
+    - variable: s3.endpoint
+      type: string
+      default: "s3.ice.ri.se"
+      label: "S3 Endpoint"
+      description: ""
+
+    - variable: s3.access_key
+      type: string
+      min_length: 20
+      max_length: 20
+      default: ""
+      label: "S3 Access Key"
+      description: "20 characters"
+
+    - variable: s3.secret_key
+      type: string
+      min_length: 40
+      max_length: 40
+      default: ""
+      label: "S3 Secret Key"
+      description: "40 characters"
+
+- variable: gitname
+  type: string
+  default: "rickard.brannvall"
+  label: "Git name"
+  description: "Set `git config --global user.name`"
+  group: "General Settings"
+
+- variable: gitemail
+  type: string
+  default: "rickard.brannvall@ri.se"
+  label: "Git email"
+  description: "Set `git config --global user.email`"
+  group: "General Settings"
+
+- variable: timezone
+  type: string
+  default: "Europe/Stockholm"
+  label: "Time Zone"
+  description: "Time zone, blank for UTC. Sets the `TZ` environment variable."
+  group: "General Settings"
