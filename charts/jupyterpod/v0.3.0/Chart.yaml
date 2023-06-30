@@ -1,5 +1,5 @@
 apiVersion: v2
-name: jupyternode
+name: jupyterpod
 description: Helm chart for Kubernetes providing a Jupyter Notebook
 home: https://jupyter.org/
 
